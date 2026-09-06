@@ -1,0 +1,68 @@
+name: Deploy
+
+# Ciao da Poonto: una pagina statica. Il deploy vero lo fa l'integrazione Git
+# di Vercel sul ramo main (progetto Vercel collegato a questo repository).
+# Questo workflow NON deploya e non usa segreti: verifica che l'URL di
+# produzione serva la scritta «Ciao da Poonto» per il commit atteso, cosi'
+# Poonto.dev ha una prova osservabile, non una promessa.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Scrivi RELEASE_PRODUCTION per autorizzare la verifica di produzione"
+        required: true
+        type: string
+      expected_sha:
+        description: "SHA completa del commit atteso su main"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-ciao-da-poonto
+  cancel-in-progress: false
+
+jobs:
+  verify-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PRODUCTION_URL: https://ciao-da-poonto.vercel.app
+    steps:
+      - name: Autorizzazione esplicita
+        run: |
+          set -euo pipefail
+          test "${{ inputs.confirmation }}" = "RELEASE_PRODUCTION" || { echo "confirmation non valida"; exit 1; }
+          echo "${{ inputs.expected_sha }}" | grep -Eq '^[0-9a-f]{40}$' || { echo "expected_sha non e' una SHA completa"; exit 1; }
+      - name: Checkout del commit atteso
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_sha }}
+          persist-credentials: false
+      - name: Il commit atteso e' la testa di main
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin main
+          main_sha="$(git rev-parse origin/main)"
+          test "$main_sha" = "${{ inputs.expected_sha }}" || { echo "main e' a $main_sha, non a ${{ inputs.expected_sha }}"; exit 1; }
+      - name: La sorgente contiene la scritta
+        run: |
+          set -euo pipefail
+          grep -q "Ciao da Poonto" index.html
+      - name: Produzione serve la scritta (attesa fino a 5 minuti per il deploy Vercel)
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            body="$(curl -sS --max-time 20 "$PRODUCTION_URL" || true)"
+            if printf '%s' "$body" | grep -q "Ciao da Poonto"; then
+              echo "OK: $PRODUCTION_URL serve la scritta (tentativo $i)"
+              curl -sSI --max-time 20 "$PRODUCTION_URL" | grep -iE '^(server|x-vercel-id|x-vercel-cache):' || true
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Produzione non serve ancora la scritta dopo 5 minuti"
+          exit 1

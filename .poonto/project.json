@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": 1,
+  "project": "Ciao da Poonto",
+  "projectKey": "ciao-da-poonto",
+  "repository": "Poonto/ciao-da-poonto",
+  "defaultBranch": "main",
+  "quality": {
+    "cwd": ".",
+    "commands": [
+      "node --input-type=module -e \"import { readFileSync } from 'node:fs'; const html = readFileSync('index.html', 'utf8'); if (!html.includes('Ciao da Poonto')) { console.error('index.html non contiene la scritta'); process.exit(1) }\""
+    ],
+    "timeoutSeconds": 120
+  },
+  "release": {
+    "strategy": "vercel-git-integration",
+    "provider": "vercel",
+    "workflow": "deploy.yml",
+    "productionUrl": "https://ciao-da-poonto.vercel.app",
+    "healthUrl": "https://ciao-da-poonto.vercel.app",
+    "timeoutSeconds": 600,
+    "dispatchRequiredInputs": ["confirmation", "expected_sha"],
+    "activation": { "state": "ready" },
+    "note": "Il deploy lo fa l'integrazione Git di Vercel sul ramo main (progetto Vercel collegato a Poonto/ciao-da-poonto). deploy.yml non deploya: verifica che l'URL di produzione serva la scritta al commit atteso."
+  },
+  "diagnostics": {
+    "enabled": false
+  },
+  "secrets": {
+    "githubEnvironment": "none",
+    "mappings": []
+  }
+}
